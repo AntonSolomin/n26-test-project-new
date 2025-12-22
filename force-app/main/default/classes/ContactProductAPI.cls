@@ -117,6 +117,7 @@ global with sharing class ContactProductAPI {
                 SELECT Id, Product__c, Home_Country__c, UUID__c
                 FROM Contact
                 WHERE UUID__c = :uuid
+                WITH SECURITY_ENFORCED
                 LIMIT 1
             ];
             
