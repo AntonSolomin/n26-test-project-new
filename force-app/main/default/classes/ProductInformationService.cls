@@ -179,16 +179,16 @@ public with sharing class ProductInformationService {
     /**
      * Retrieves all product information for a given product and country
      * 
-     * @param product The product name (Standard, Black, Metal)
+     * @param productLevel The product level (Basic, Standard, Premium)
      * @param country The home country code (DE, FR, ES, IT, UK)
      * @return A map containing all product information keys: costPerMonth, atmFee, cardReplacementCost
      */
-    public static Map<String, String> getProductInformation(String product, String country) {
+    public static Map<String, String> getProductInformation(String productLevel, String country) {
         Map<String, String> productInfo = new Map<String, String>();
         
-        productInfo.put('costPerMonth', getCostPerMonth(product, country));
-        productInfo.put('atmFee', getAtmFee(product, country));
-        productInfo.put('cardReplacementCost', getCardReplacementCost(product, country));
+        productInfo.put('costPerMonth', getCostPerMonth(productLevel, country));
+        productInfo.put('atmFee', getAtmFee(productLevel, country));
+        productInfo.put('cardReplacementCost', getCardReplacementCost(productLevel, country));
         
         return productInfo;
     }

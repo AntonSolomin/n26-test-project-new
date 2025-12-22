@@ -1,18 +1,19 @@
 /**
- * REST API endpoint to retrieve contact information and product pricing data by UUID
+ * REST API endpoint to retrieve product pricing data by UUID
  * 
  * Endpoint: /services/apexrest/ContactProductAPI/{uuid}
  * Method: GET
  * 
- * This API allows external systems to retrieve contact data and associated
- * product pricing information by providing a UUID identifier.
+ * This API allows external systems to retrieve product pricing information
+ * by providing a UUID identifier that maps to a Contact record.
+ * The API returns only product information, not contact data.
  */
 @RestResource(urlMapping='/ContactProductAPI/*')
 global with sharing class ContactProductAPI {
     
     /**
      * GET endpoint handler
-     * Retrieves contact and product information by UUID from the URL path
+     * Retrieves product information by UUID from the URL path
      */
     @HttpGet
     global static void getContactProductInfo() {
@@ -85,7 +86,7 @@ global with sharing class ContactProductAPI {
         
         // Check Field-Level Security (FLS) for all fields being queried
         Map<String, Schema.SObjectField> contactFields = Schema.sObjectType.Contact.fields.getMap();
-        String[] requiredFields = new String[]{ 'Id', 'Name', 'Product__c', 'Home_Country__c', 'UUID__c' };
+        String[] requiredFields = new String[]{ 'Id', 'Product_Level__c', 'MailingCountry', 'UUID__c' };
         
         for (String fieldName : requiredFields) {
             // Standard fields use lowercase API name, custom fields use exact name
@@ -108,7 +109,7 @@ global with sharing class ContactProductAPI {
             // Use bind variable to prevent SOQL injection
             // UUID is already validated and sanitized
             List<Contact> contacts = [
-                SELECT Id, Name, Product__c, Home_Country__c, UUID__c
+                SELECT Id, Product_Level__c, MailingCountry, UUID__c
                 FROM Contact
                 WHERE UUID__c = :uuid
                 WITH SECURITY_ENFORCED
@@ -117,11 +118,11 @@ global with sharing class ContactProductAPI {
             
             return contacts.isEmpty() ? null : contacts[0];
         } catch (System.QueryException e) {
-            // Security or access violation - don't expose details
+            // Security or access violation - don't expose details. can log error here.
             System.debug(LoggingLevel.ERROR, 'Security violation or access denied when querying contact');
             return null;
         } catch (Exception e) {
-            // Log error without exposing internal details
+            // Log error without exposing internal details. can log error here.
             System.debug(LoggingLevel.ERROR, 'Error querying contact by UUID');
             return null;
         }
@@ -155,33 +156,33 @@ global with sharing class ContactProductAPI {
     }
     
     /**
-     * Builds the response object with contact and product information
+     * Builds the response object with product information only
      */
     private static ContactProductResponse buildResponse(Contact contact) {
         ContactProductResponse response = new ContactProductResponse();
         response.success = true;
         
-        // Build contact information
-        ContactInfo contactInfo = new ContactInfo();
-        contactInfo.id = contact.Id;
-        contactInfo.name = contact.Name;
-        contactInfo.product = contact.Product__c;
-        contactInfo.homeCountry = contact.Home_Country__c;
-        contactInfo.uuid = contact.UUID__c;
-        response.contact = contactInfo;
+        // Build product information if product and country are available and valid
         
-        // Build product information if product and country are available
-        if (String.isNotBlank(contact.Product__c) && String.isNotBlank(contact.Home_Country__c)) {
-            Map<String, String> productInfo = ProductInformationService.getProductInformation(
-                contact.Product__c,
-                contact.Home_Country__c
-            );
-            
-            ProductInformation prodInfo = new ProductInformation();
-            prodInfo.costPerMonth = productInfo.get('costPerMonth');
-            prodInfo.atmFee = productInfo.get('atmFee');
-            prodInfo.cardReplacementCost = productInfo.get('cardReplacementCost');
-            response.productInformation = prodInfo;
+        if (!String.isBlank(contact.Product_Level__c) && !String.isBlank(contact.MailingCountry)) {
+            // Validate product and country before retrieving information
+            if (ProductInformationService.isValidCountry(contact.MailingCountry)) {
+                
+                Map<String, String> productInfo = ProductInformationService.getProductInformation(
+                    contact.Product_Level__c,
+                    contact.MailingCountry
+                );
+                
+                ProductInformation prodInfo = new ProductInformation();
+                prodInfo.costPerMonth = productInfo.get('costPerMonth');
+                prodInfo.atmFee = productInfo.get('atmFee');
+                prodInfo.cardReplacementCost = productInfo.get('cardReplacementCost');
+                prodInfo.productLevel = contact.Product_Level__c;
+                response.productInformation = prodInfo;
+            } else {
+                // If product or country is invalid, set product information to null
+                response.productInformation = null;
+            }
         } else {
             // If product or country is missing, set product information to null
             response.productInformation = null;
@@ -215,7 +216,6 @@ global with sharing class ContactProductAPI {
      */
     global class ContactProductResponse {
         public Boolean success;
-        public ContactInfo contact;
         public ProductInformation productInformation;
         public List<String> errors;
         
@@ -226,23 +226,13 @@ global with sharing class ContactProductAPI {
     }
     
     /**
-     * Inner class to represent contact information in the response
-     */
-    global class ContactInfo {
-        public String id;
-        public String name;
-        public String product;
-        public String homeCountry;
-        public String uuid;
-    }
-    
-    /**
      * Inner class to represent product information in the response
      */
     global class ProductInformation {
         public String costPerMonth;
         public String atmFee;
         public String cardReplacementCost;
+        public String productLevel;
     }
 }
 

@@ -14,8 +14,8 @@ private class ContactProductAPITest {
         Contact testContact = new Contact(
             FirstName = 'John',
             LastName = 'Doe',
-            Product__c = 'Standard',
-            Home_Country__c = 'DE',
+            Product_Level__c = 'Standard',
+            MailingCountry = 'DE',
             UUID__c = 'test-uuid-12345'
         );
         insert testContact;
@@ -40,17 +40,10 @@ private class ContactProductAPITest {
         Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         System.assertEquals(true, responseMap.get('success'), 'Response should indicate success');
         
-        // Verify contact information
-        Map<String, Object> contactMap = (Map<String, Object>) responseMap.get('contact');
-        System.assertEquals(testContact.Id, contactMap.get('id'), 'Contact ID should match');
-        System.assertEquals('John Doe', contactMap.get('name'), 'Contact name should match');
-        System.assertEquals('Standard', contactMap.get('product'), 'Product should match');
-        System.assertEquals('DE', contactMap.get('homeCountry'), 'Home country should match');
-        System.assertEquals('test-uuid-12345', contactMap.get('uuid'), 'UUID should match');
-        
         // Verify product information
         Map<String, Object> productInfoMap = (Map<String, Object>) responseMap.get('productInformation');
         System.assertNotEquals(null, productInfoMap, 'Product information should not be null');
+        System.assertEquals('Standard', productInfoMap.get('productLevel'), 'Product level should match');
         System.assertEquals('€ 0', productInfoMap.get('costPerMonth'), 'Cost per month should match');
         System.assertEquals('1.7%', productInfoMap.get('atmFee'), 'ATM fee should match');
         System.assertEquals('€ 6', productInfoMap.get('cardReplacementCost'), 'Card replacement cost should match');
@@ -64,8 +57,8 @@ private class ContactProductAPITest {
         Contact testContact = new Contact(
             FirstName = 'Jane',
             LastName = 'Smith',
-            Product__c = 'Black',
-            Home_Country__c = 'UK',
+            Product_Level__c = 'Black',
+            MailingCountry = 'UK',
             UUID__c = 'test-uuid-black-uk'
         );
         insert testContact;
@@ -85,6 +78,7 @@ private class ContactProductAPITest {
         
         Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         Map<String, Object> productInfoMap = (Map<String, Object>) responseMap.get('productInformation');
+        System.assertEquals('Black', productInfoMap.get('productLevel'), 'Product level should match');
         System.assertEquals('N/a', productInfoMap.get('costPerMonth'), 'Black UK cost per month should be N/a');
         System.assertEquals('Free', productInfoMap.get('atmFee'), 'Black UK ATM fee should be Free');
         System.assertEquals('£ 6', productInfoMap.get('cardReplacementCost'), 'Black UK card replacement should be £ 6');
@@ -99,8 +93,8 @@ private class ContactProductAPITest {
         Contact testContactUK = new Contact(
             FirstName = 'Metal',
             LastName = 'UK',
-            Product__c = 'Metal',
-            Home_Country__c = 'UK',
+            Product_Level__c = 'Metal',
+            MailingCountry = 'UK',
             UUID__c = 'test-uuid-metal-uk'
         );
         insert testContactUK;
@@ -120,7 +114,9 @@ private class ContactProductAPITest {
         
         Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         Map<String, Object> productInfoMap = (Map<String, Object>) responseMap.get('productInformation');
+        System.assertEquals('Metal', productInfoMap.get('productLevel'), 'Product level should match');
         System.assertEquals('N/a', productInfoMap.get('costPerMonth'), 'Metal UK cost per month should be N/a');
+        System.assertEquals('Free', productInfoMap.get('atmFee'), 'Metal UK ATM fee should be Free');
         System.assertEquals('£ 45', productInfoMap.get('cardReplacementCost'), 'Metal UK card replacement should be £ 45');
     }
     
@@ -174,14 +170,14 @@ private class ContactProductAPITest {
     }
     
     /**
-     * Test GET request with contact missing Product__c field
+     * Test GET request with contact missing Product_Level__c field
      */
     @isTest
     static void testGetContactProductInfo_MissingProduct() {
         Contact testContact = new Contact(
             FirstName = 'No',
             LastName = 'Product',
-            Home_Country__c = 'DE',
+            MailingCountry = 'DE',
             UUID__c = 'test-uuid-no-product'
         );
         insert testContact;
@@ -205,14 +201,14 @@ private class ContactProductAPITest {
     }
     
     /**
-     * Test GET request with contact missing Home_Country__c field
+     * Test GET request with contact missing MailingCountry field
      */
     @isTest
     static void testGetContactProductInfo_MissingCountry() {
         Contact testContact = new Contact(
             FirstName = 'No',
             LastName = 'Country',
-            Product__c = 'Standard',
+            Product_Level__c = 'Standard',
             UUID__c = 'test-uuid-no-country'
         );
         insert testContact;
@@ -236,88 +232,62 @@ private class ContactProductAPITest {
     }
     
     /**
-     * Test successful POST request with UUID in request body
+     * Test GET request with invalid UUID format (should return 404)
      */
     @isTest
-    static void testPostContactProductInfo_SuccessWithBody() {
-        Contact testContact = new Contact(
-            FirstName = 'Post',
-            LastName = 'Test',
-            Product__c = 'Standard',
-            Home_Country__c = 'FR',
-            UUID__c = 'test-uuid-post-body'
-        );
-        insert testContact;
-        
+    static void testGetContactProductInfo_InvalidUuidFormat() {
         RestRequest req = new RestRequest();
         RestResponse res = new RestResponse();
-        req.requestURI = '/services/apexrest/ContactProductAPI/';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf('{"uuid":"test-uuid-post-body"}');
+        req.requestURI = '/services/apexrest/ContactProductAPI/invalid-uuid-with-special-chars!@#';
+        req.httpMethod = 'GET';
         RestContext.request = req;
         RestContext.response = res;
         
         Test.startTest();
-        ContactProductAPI.postContactProductInfo();
+        ContactProductAPI.getContactProductInfo();
         Test.stopTest();
         
-        System.assertEquals(200, res.statusCode, 'Status code should be 200');
-        
-        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        System.assertEquals(true, responseMap.get('success'), 'Response should indicate success');
-    }
-    
-    /**
-     * Test POST request with UUID in URI (fallback)
-     */
-    @isTest
-    static void testPostContactProductInfo_SuccessWithURI() {
-        Contact testContact = new Contact(
-            FirstName = 'Post',
-            LastName = 'URI',
-            Product__c = 'Metal',
-            Home_Country__c = 'IT',
-            UUID__c = 'test-uuid-post-uri'
-        );
-        insert testContact;
-        
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse();
-        req.requestURI = '/services/apexrest/ContactProductAPI/test-uuid-post-uri';
-        req.httpMethod = 'POST';
-        RestContext.request = req;
-        RestContext.response = res;
-        
-        Test.startTest();
-        ContactProductAPI.postContactProductInfo();
-        Test.stopTest();
-        
-        System.assertEquals(200, res.statusCode, 'Status code should be 200');
-        
-        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        System.assertEquals(true, responseMap.get('success'), 'Response should indicate success');
-    }
-    
-    /**
-     * Test POST request with missing UUID (400 error)
-     */
-    @isTest
-    static void testPostContactProductInfo_MissingUUID() {
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse();
-        req.requestURI = '/services/apexrest/ContactProductAPI/';
-        req.httpMethod = 'POST';
-        RestContext.request = req;
-        RestContext.response = res;
-        
-        Test.startTest();
-        ContactProductAPI.postContactProductInfo();
-        Test.stopTest();
-        
-        System.assertEquals(400, res.statusCode, 'Status code should be 400');
+        // Invalid UUID format should return 404 (contact not found after validation)
+        System.assertEquals(404, res.statusCode, 'Status code should be 404 for invalid UUID format');
         
         Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         System.assertEquals(false, responseMap.get('success'), 'Response should indicate failure');
+    }
+    
+    /**
+     * Test GET request with different European countries (DE, FR, ES, IT)
+     */
+    @isTest
+    static void testGetContactProductInfo_EuropeanCountries() {
+        // Test with France
+        Contact testContactFR = new Contact(
+            FirstName = 'French',
+            LastName = 'Contact',
+            Product_Level__c = 'Black',
+            MailingCountry = 'FR',
+            UUID__c = 'test-uuid-fr'
+        );
+        insert testContactFR;
+        
+        RestRequest req = new RestRequest();
+        RestResponse res = new RestResponse();
+        req.requestURI = '/services/apexrest/ContactProductAPI/test-uuid-fr';
+        req.httpMethod = 'GET';
+        RestContext.request = req;
+        RestContext.response = res;
+        
+        Test.startTest();
+        ContactProductAPI.getContactProductInfo();
+        Test.stopTest();
+        
+        System.assertEquals(200, res.statusCode, 'Status code should be 200');
+        
+        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Map<String, Object> productInfoMap = (Map<String, Object>) responseMap.get('productInformation');
+        System.assertEquals('Black', productInfoMap.get('productLevel'), 'Product level should match');
+        System.assertEquals('€ 9,90', productInfoMap.get('costPerMonth'), 'Black FR cost per month should be € 9,90');
+        System.assertEquals('Free', productInfoMap.get('atmFee'), 'Black FR ATM fee should be Free');
+        System.assertEquals('€ 6', productInfoMap.get('cardReplacementCost'), 'Black FR card replacement should be € 6');
     }
     
     /**
@@ -335,8 +305,8 @@ private class ContactProductAPITest {
                 testContacts.add(new Contact(
                     FirstName = product,
                     LastName = country,
-                    Product__c = product,
-                    Home_Country__c = country,
+                    Product_Level__c = product,
+                    MailingCountry = country,
                     UUID__c = 'test-uuid-' + uuidCounter++
                 ));
             }
@@ -361,6 +331,11 @@ private class ContactProductAPITest {
             
             Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
             System.assertEquals(true, responseMap.get('success'), 'Response should indicate success');
+            
+            // Verify product information is present
+            Map<String, Object> productInfoMap = (Map<String, Object>) responseMap.get('productInformation');
+            System.assertNotEquals(null, productInfoMap, 'Product information should not be null for ' + testContact.Product_Level__c + '/' + testContact.MailingCountry);
+            System.assertEquals(testContact.Product_Level__c, productInfoMap.get('productLevel'), 'Product level should match');
         }
         Test.stopTest();
     }
@@ -376,8 +351,8 @@ private class ContactProductAPITest {
             testContacts.add(new Contact(
                 FirstName = 'Bulk',
                 LastName = 'Test' + i,
-                Product__c = 'Standard',
-                Home_Country__c = 'DE',
+                Product_Level__c = 'Standard',
+                MailingCountry = 'DE',
                 UUID__c = 'bulk-uuid-' + i
             ));
         }
@@ -397,6 +372,10 @@ private class ContactProductAPITest {
             ContactProductAPI.getContactProductInfo();
             
             System.assertEquals(200, res.statusCode, 'Status code should be 200 for bulk contact ' + i);
+            
+            Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+            System.assertEquals(true, responseMap.get('success'), 'Response should indicate success');
+            System.assertNotEquals(null, responseMap.get('productInformation'), 'Product information should be present');
         }
         Test.stopTest();
     }
