@@ -14,8 +14,8 @@ private class ContactProductAPITest {
         Contact testContact = new Contact(
             FirstName = 'John',
             LastName = 'Doe',
-            Product_Level__c = 'Standard',
-            MailingCountry = 'DE',
+            Product__c = 'Standard',
+            Home_Country__c = 'DE',
             UUID__c = 'test-uuid-12345'
         );
         insert testContact;
@@ -57,8 +57,8 @@ private class ContactProductAPITest {
         Contact testContact = new Contact(
             FirstName = 'Jane',
             LastName = 'Smith',
-            Product_Level__c = 'Black',
-            MailingCountry = 'UK',
+            Product__c = 'Black',
+            Home_Country__c = 'UK',
             UUID__c = 'test-uuid-black-uk'
         );
         insert testContact;
@@ -93,8 +93,8 @@ private class ContactProductAPITest {
         Contact testContactUK = new Contact(
             FirstName = 'Metal',
             LastName = 'UK',
-            Product_Level__c = 'Metal',
-            MailingCountry = 'UK',
+            Product__c = 'Metal',
+            Home_Country__c = 'UK',
             UUID__c = 'test-uuid-metal-uk'
         );
         insert testContactUK;
@@ -170,14 +170,14 @@ private class ContactProductAPITest {
     }
     
     /**
-     * Test GET request with contact missing Product_Level__c field
+     * Test GET request with contact missing Product__c field
      */
     @isTest
     static void testGetContactProductInfo_MissingProduct() {
         Contact testContact = new Contact(
             FirstName = 'No',
             LastName = 'Product',
-            MailingCountry = 'DE',
+            Home_Country__c = 'DE',
             UUID__c = 'test-uuid-no-product'
         );
         insert testContact;
@@ -201,14 +201,14 @@ private class ContactProductAPITest {
     }
     
     /**
-     * Test GET request with contact missing MailingCountry field
+     * Test GET request with contact missing Home_Country__c field
      */
     @isTest
     static void testGetContactProductInfo_MissingCountry() {
         Contact testContact = new Contact(
             FirstName = 'No',
             LastName = 'Country',
-            Product_Level__c = 'Standard',
+            Product__c = 'Standard',
             UUID__c = 'test-uuid-no-country'
         );
         insert testContact;
@@ -263,8 +263,8 @@ private class ContactProductAPITest {
         Contact testContactFR = new Contact(
             FirstName = 'French',
             LastName = 'Contact',
-            Product_Level__c = 'Black',
-            MailingCountry = 'FR',
+            Product__c = 'Black',
+            Home_Country__c = 'FR',
             UUID__c = 'test-uuid-fr'
         );
         insert testContactFR;
@@ -305,8 +305,8 @@ private class ContactProductAPITest {
                 testContacts.add(new Contact(
                     FirstName = product,
                     LastName = country,
-                    Product_Level__c = product,
-                    MailingCountry = country,
+                    Product__c = product,
+                    Home_Country__c = country,
                     UUID__c = 'test-uuid-' + uuidCounter++
                 ));
             }
@@ -334,8 +334,8 @@ private class ContactProductAPITest {
             
             // Verify product information is present
             Map<String, Object> productInfoMap = (Map<String, Object>) responseMap.get('productInformation');
-            System.assertNotEquals(null, productInfoMap, 'Product information should not be null for ' + testContact.Product_Level__c + '/' + testContact.MailingCountry);
-            System.assertEquals(testContact.Product_Level__c, productInfoMap.get('productLevel'), 'Product level should match');
+            System.assertNotEquals(null, productInfoMap, 'Product information should not be null for ' + testContact.Product__c + '/' + testContact.Home_Country__c);
+            System.assertEquals(testContact.Product__c, productInfoMap.get('productLevel'), 'Product level should match');
         }
         Test.stopTest();
     }
@@ -351,8 +351,8 @@ private class ContactProductAPITest {
             testContacts.add(new Contact(
                 FirstName = 'Bulk',
                 LastName = 'Test' + i,
-                Product_Level__c = 'Standard',
-                MailingCountry = 'DE',
+                Product__c = 'Standard',
+                Home_Country__c = 'DE',
                 UUID__c = 'bulk-uuid-' + i
             ));
         }

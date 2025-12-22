@@ -84,23 +84,27 @@ global with sharing class ContactProductAPI {
             return null;
         }
         
-        // Check Field-Level Security (FLS) for all fields being queried
+        // Check Field-Level Security (FLS) for custom fields being queried
+        // Note: Id field is always accessible, so we skip it
         Map<String, Schema.SObjectField> contactFields = Schema.sObjectType.Contact.fields.getMap();
-        String[] requiredFields = new String[]{ 'Id', 'Product_Level__c', 'MailingCountry', 'UUID__c' };
+        String[] requiredCustomFields = new String[]{ 'Product__c', 'Home_Country__c', 'UUID__c' };
         
-        for (String fieldName : requiredFields) {
-            // Standard fields use lowercase API name, custom fields use exact name
-            String apiName = fieldName.contains('__c') ? fieldName : fieldName.toLowerCase();
-            Schema.SObjectField field = contactFields.get(apiName);
+        for (String fieldName : requiredCustomFields) {
+            Schema.SObjectField field = contactFields.get(fieldName);
             
             if (field == null) {
-                System.debug(LoggingLevel.ERROR, 'Field not found: ' + fieldName);
+                System.debug(LoggingLevel.ERROR, 'Field not found: ' + fieldName + '. Available fields: ' + contactFields.keySet());
                 return null;
             }
             
-            Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
-            if (!fieldDescribe.isAccessible()) {
-                System.debug(LoggingLevel.ERROR, 'User does not have access to field: ' + fieldName);
+            try {
+                Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
+                if (!fieldDescribe.isAccessible()) {
+                    System.debug(LoggingLevel.ERROR, 'User does not have access to field: ' + fieldName);
+                    return null;
+                }
+            } catch (Exception e) {
+                System.debug(LoggingLevel.ERROR, 'Error checking field access for ' + fieldName + ': ' + e.getMessage());
                 return null;
             }
         }
@@ -108,22 +112,27 @@ global with sharing class ContactProductAPI {
         try {
             // Use bind variable to prevent SOQL injection
             // UUID is already validated and sanitized
+            // Field-level security is already checked above
             List<Contact> contacts = [
-                SELECT Id, Product_Level__c, MailingCountry, UUID__c
+                SELECT Id, Product__c, Home_Country__c, UUID__c
                 FROM Contact
                 WHERE UUID__c = :uuid
-                WITH SECURITY_ENFORCED
                 LIMIT 1
             ];
+            
+            // Debug logging to help diagnose issues
+            if (contacts.isEmpty()) {
+                System.debug(LoggingLevel.WARN, 'No contact found with UUID: ' + uuid);
+            }
             
             return contacts.isEmpty() ? null : contacts[0];
         } catch (System.QueryException e) {
             // Security or access violation - don't expose details. can log error here.
-            System.debug(LoggingLevel.ERROR, 'Security violation or access denied when querying contact');
+            System.debug(LoggingLevel.ERROR, 'Security violation or access denied when querying contact: ' + e.getMessage());
             return null;
         } catch (Exception e) {
             // Log error without exposing internal details. can log error here.
-            System.debug(LoggingLevel.ERROR, 'Error querying contact by UUID');
+            System.debug(LoggingLevel.ERROR, 'Error querying contact by UUID: ' + e.getMessage() + ' Stack: ' + e.getStackTraceString());
             return null;
         }
     }
@@ -164,20 +173,20 @@ global with sharing class ContactProductAPI {
         
         // Build product information if product and country are available and valid
         
-        if (!String.isBlank(contact.Product_Level__c) && !String.isBlank(contact.MailingCountry)) {
+        if (!String.isBlank(contact.Product__c) && !String.isBlank(contact.Home_Country__c)) {
             // Validate product and country before retrieving information
-            if (ProductInformationService.isValidCountry(contact.MailingCountry)) {
+            if (ProductInformationService.isValidCountry(contact.Home_Country__c)) {
                 
                 Map<String, String> productInfo = ProductInformationService.getProductInformation(
-                    contact.Product_Level__c,
-                    contact.MailingCountry
+                    contact.Product__c,
+                    contact.Home_Country__c
                 );
                 
                 ProductInformation prodInfo = new ProductInformation();
                 prodInfo.costPerMonth = productInfo.get('costPerMonth');
                 prodInfo.atmFee = productInfo.get('atmFee');
                 prodInfo.cardReplacementCost = productInfo.get('cardReplacementCost');
-                prodInfo.productLevel = contact.Product_Level__c;
+                prodInfo.productLevel = contact.Product__c;
                 response.productInformation = prodInfo;
             } else {
                 // If product or country is invalid, set product information to null
